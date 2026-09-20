@@ -1,0 +1,46 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract project ZIP
+        shell: bash
+        run: |
+          set -e
+          ZIP="$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)"
+          test -n "$ZIP"
+
+          rm -rf project
+          mkdir project
+          unzip -q "$ZIP" -d project
+
+          SPEC="$(find project -name buildozer.spec -type f -print -quit)"
+          test -n "$SPEC"
+
+          PROJECT_DIR="$(dirname "$SPEC")"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          workdir: ${{ env.PROJECT_DIR }}
+          buildozer_version: stable
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-backup-apk
+          path: ${{ steps.buildozer.outputs.filename }}
